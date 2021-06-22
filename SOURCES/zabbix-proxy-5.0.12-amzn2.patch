@@ -1,0 +1,75 @@
+diff -urN zabbix-5.0.12-orig/conf/zabbix_proxy.conf zabbix-5.0.12/conf/zabbix_proxy.conf
+--- zabbix-5.0.12-orig/conf/zabbix_proxy.conf	2021-05-24 10:21:12.000000000 +0200
++++ zabbix-5.0.12/conf/zabbix_proxy.conf	2021-06-21 16:25:46.149308960 +0200
+@@ -88,7 +88,7 @@
+ # Default:
+ # LogFile=
+ 
+-LogFile=/tmp/zabbix_proxy.log
++LogFile=/var/log/zabbix/zabbix_proxy.log
+ 
+ ### Option: LogFileSize
+ #	Maximum size of log file in MB.
+@@ -136,7 +136,7 @@
+ #
+ # Mandatory: no
+ # Default:
+-# PidFile=/tmp/zabbix_proxy.pid
++PidFile=/var/run/zabbix/zabbix_proxy.pid
+ 
+ ### Option: SocketDir
+ #	IPC socket directory.
+@@ -164,7 +164,7 @@
+ # Default:
+ # DBName=
+ 
+-DBName=zabbix_proxy
++DBName=/var/lib/zabbix/zabbix_proxy
+ 
+ ### Option: DBSchema
+ #	Schema name. Used for PostgreSQL.
+@@ -179,7 +179,7 @@
+ # Default:
+ # DBUser=
+ 
+-DBUser=zabbix
++# DBUser=zabbix
+ 
+ ### Option: DBPassword
+ #	Database password. Ignored for SQLite.
+diff -urN zabbix-5.0.12-orig/zabbix-proxy.logrotate zabbix-5.0.12/zabbix-proxy.logrotate
+--- zabbix-5.0.12-orig/zabbix-proxy.logrotate	1970-01-01 01:00:00.000000000 +0100
++++ zabbix-5.0.12/zabbix-proxy.logrotate	2021-06-21 15:05:51.742460832 +0200
+@@ -0,0 +1,9 @@
++/var/log/zabbix/zabbix_proxy.log {
++        weekly
++        rotate 12
++        compress
++        delaycompress
++        missingok
++        notifempty
++        create 0664 zabbix zabbix
++}
+diff -urN zabbix-5.0.12-orig/zabbix-proxy.service zabbix-5.0.12/zabbix-proxy.service
+--- zabbix-5.0.12-orig/zabbix-proxy.service	1970-01-01 01:00:00.000000000 +0100
++++ zabbix-5.0.12/zabbix-proxy.service	2021-06-21 16:11:43.345075395 +0200
+@@ -0,0 +1,19 @@
++[Unit]
++Description=Zabbix Proxy
++After=syslog.target
++After=network.target
++
++[Service]
++Environment="CONFFILE=/etc/zabbix/zabbix_proxy.conf"
++EnvironmentFile=-/etc/sysconfig/zabbix-proxy
++Type=forking
++Restart=on-failure
++PIDFile=/var/run/zabbix/zabbix_proxy.pid
++KillMode=control-group
++ExecStart=/usr/sbin/zabbix_proxy -c $CONFFILE
++ExecStop=/bin/kill -SIGTERM $MAINPID
++RestartSec=10s
++TimeoutSec=0
++
++[Install]
++WantedBy=multi-user.target

@@ -1,0 +1,122 @@
+diff -urN zabbix-5.0.7-orig/zabbix-agent.init zabbix-5.0.7/zabbix-agent.init
+--- zabbix-5.0.7-orig/zabbix-agent.init	1970-01-01 01:00:00.000000000 +0100
++++ zabbix-5.0.7/zabbix-agent.init	2021-01-19 16:09:44.397009819 +0100
+@@ -0,0 +1,97 @@
++#!/bin/sh
++#
++# chkconfig: - 86 14
++# description: Zabbix agent daemon
++# processname: zabbix_agentd
++# config: /etc/zabbix/zabbix_agentd.conf
++#
++
++### BEGIN INIT INFO
++# Provides: zabbix-agent
++# Required-Start: $local_fs $network
++# Required-Stop: $local_fs $network
++# Should-Start: zabbix zabbix-proxy
++# Should-Stop: zabbix zabbix-proxy
++# Default-Start:
++# Default-Stop: 0 1 2 3 4 5 6
++# Short-Description: Start and stop Zabbix agent
++# Description: Zabbix agent
++### END INIT INFO
++
++# Source function library.
++. /etc/rc.d/init.d/functions
++
++if [ -x /usr/sbin/zabbix_agentd ]; then
++    exec=/usr/sbin/zabbix_agentd
++else
++    exit 5
++fi
++
++prog=${exec##*/}
++conf=/etc/zabbix/zabbix_agentd.conf
++pidfile=$(grep -e "^PidFile=.*$" $conf | cut -d= -f2 | tr -d '\r')
++timeout=10
++
++if [ -f /etc/sysconfig/zabbix-agent ]; then
++    . /etc/sysconfig/zabbix-agent
++fi
++
++if [ -n "$ZABBIX_AGENT_USER" ]; then
++    user_conf="--user=$ZABBIX_AGENT_USER"
++else
++    user_conf=''
++fi
++
++lockfile=/var/lock/subsys/zabbix-agent
++
++start()
++{
++    echo -n $"Starting Zabbix agent: "
++    daemon $user_conf $exec -c $conf
++    rv=$?
++    echo
++    [ $rv -eq 0 ] && touch $lockfile
++    return $rv
++}
++
++stop()
++{
++    echo -n $"Shutting down Zabbix agent: "
++    killproc -p $pidfile -d $timeout $prog
++    rv=$?
++    echo
++    [ $rv -eq 0 ] && rm -f $lockfile
++    return $rv
++}
++
++restart()
++{
++    stop
++    start
++}
++
++case "$1" in
++    start|stop|restart)
++        $1
++        ;;
++    force-reload)
++        restart
++        ;;
++    status)
++        status -p $pidfile $prog 
++        ;;
++    try-restart|condrestart)
++        if status $prog >/dev/null ; then
++            restart
++        fi
++        ;;
++    reload)
++        action $"Service ${0##*/} does not support the reload action: " /bin/false
++        exit 3
++        ;;
++    *)
++        echo $"Usage: $0 {start|stop|status|restart|try-restart|force-reload}"
++        exit 2
++        ;;
++esac
++
+diff -urN zabbix-5.0.7-orig/zabbix-agent.logrotate zabbix-5.0.7/zabbix-agent.logrotate
+--- zabbix-5.0.7-orig/zabbix-agent.logrotate	1970-01-01 01:00:00.000000000 +0100
++++ zabbix-5.0.7/zabbix-agent.logrotate	2021-01-19 11:59:41.101902212 +0100
+@@ -0,0 +1,9 @@
++/var/log/zabbix/zabbix_agentd.log {
++        weekly
++        rotate 12
++        compress
++        delaycompress
++        missingok
++        notifempty
++        create 0664 zabbix zabbix
++}
+diff -urN zabbix-5.0.7-orig/zabbix-agent.sysconfig zabbix-5.0.7/zabbix-agent.sysconfig
+--- zabbix-5.0.7-orig/zabbix-agent.sysconfig	1970-01-01 01:00:00.000000000 +0100
++++ zabbix-5.0.7/zabbix-agent.sysconfig	2021-01-19 12:01:08.768420657 +0100
+@@ -0,0 +1,4 @@
++# Configuration file for /etc/init.d/zabbix-agent service
++
++# User to run zabbix agent as
++ZABBIX_AGENT_USER=zabbix
